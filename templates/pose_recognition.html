@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人体关键点Value值识别系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 1280px;
+            margin: 0 auto 20px;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            aspect-ratio: 16/9;
+        }
+
+        #videoStream {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        .placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #999;
+            font-size: 1.2em;
+        }
+
+        .placeholder-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-start:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .result-panel {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .result-value {
+            text-align: center;
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 20px 0;
+        }
+
+        .result-confidence {
+            text-align: center;
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .probabilities {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .prob-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .prob-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .prob-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .prob-item.highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .prob-item.highlight .prob-label,
+        .prob-item.highlight .prob-value {
+            color: white;
+        }
+
+        .status-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .status-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .status-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        .status-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .status-value.active {
+            color: #4CAF50;
+        }
+
+        .status-value.inactive {
+            color: #f44336;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            display: none;
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #2196F3;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            color: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 人体关键点Value值识别系统</h1>
+        <p class="subtitle">基于YOLO + LSTM的实时姿势分类识别</p>
+
+        <div class="video-container">
+            <div class="placeholder" id="placeholder">
+                <div class="placeholder-icon">📹</div>
+                <div>点击"开始识别"按钮启动摄像头</div>
+            </div>
+            <img id="videoStream" src="" alt="视频流">
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>正在启动识别...</div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-start" id="btnStart" onclick="startRecognition()">▶️ 开始识别</button>
+            <button class="btn-stop" id="btnStop" onclick="stopRecognition()" disabled>⏹️ 停止识别</button>
+        </div>
+
+        <div class="result-panel" id="resultPanel" style="display: none;">
+            <div class="result-title">识别结果</div>
+            <div class="result-value" id="resultValue">-</div>
+            <div class="result-confidence" id="resultConfidence">置信度: -</div>
+            
+            <div class="probabilities" id="probabilities">
+                <!-- 概率显示区域 -->
+            </div>
+        </div>
+
+        <div class="info-box">
+            <p><strong>使用说明：</strong></p>
+            <p>1. 点击"开始识别"启动摄像头</p>
+            <p>2. 系统会自动提取人体关键点并识别value值（value_1到value_8）</p>
+            <p>3. 需要连续30帧数据才能进行预测</p>
+            <p>4. 识别结果会实时显示在视频上方和结果面板中</p>
+        </div>
+
+        <div class="status-panel">
+            <div class="status-card">
+                <div class="status-label">识别状态</div>
+                <div class="status-value" id="statusValue">未启动</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">YOLO模型</div>
+                <div class="status-value" id="yoloStatus">-</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">LSTM模型</div>
+                <div class="status-value" id="lstmStatus">-</div>
+            </div>
+            <div class="status-card">
+                <div class="status-label">计算设备</div>
+                <div class="status-value" id="deviceValue">-</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let statusCheckInterval = null;
+        let resultUpdateInterval = null;
+
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
+            setTimeout(() => {
+                errorDiv.classList.remove('active');
+            }, 5000);
+        }
+
+        function updateStatus() {
+            const baseUrl = window.location.origin;
+            fetch(baseUrl + '/status', { mode: 'cors' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('HTTP error! status: ' + response.status);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // 更新状态显示
+                    const statusValue = document.getElementById('statusValue');
+                    if (data.is_processing) {
+                        statusValue.textContent = '运行中';
+                        statusValue.className = 'status-value active';
+                    } else {
+                        statusValue.textContent = '已停止';
+                        statusValue.className = 'status-value inactive';
+                    }
+
+                    // 更新模型状态
+                    document.getElementById('yoloStatus').textContent = data.yolo_loaded ? '已加载' : '未加载';
+                    document.getElementById('yoloStatus').className = data.yolo_loaded ? 'status-value active' : 'status-value inactive';
+                    
+                    document.getElementById('lstmStatus').textContent = data.lstm_loaded ? '已加载' : '未加载';
+                    document.getElementById('lstmStatus').className = data.lstm_loaded ? 'status-value active' : 'status-value inactive';
+                    
+                    document.getElementById('deviceValue').textContent = data.device.toUpperCase();
+                })
+                .catch(error => {
+                    console.error('获取状态失败:', error);
+                });
+        }
+
+        function updateResult(result) {
+            if (!result || !result.predicted_value) {
+                return;
+            }
+
+            const resultPanel = document.getElementById('resultPanel');
+            resultPanel.style.display = 'block';
+
+            // 更新主要结果
+            document.getElementById('resultValue').textContent = `Value ${result.predicted_value}`;
+            document.getElementById('resultConfidence').textContent = 
+                `置信度: ${(result.confidence * 100).toFixed(1)}%`;
+
+            // 更新概率显示
+            const probContainer = document.getElementById('probabilities');
+            probContainer.innerHTML = '';
+
+            if (result.all_probabilities) {
+                const sortedProbs = Object.entries(result.all_probabilities)
+                    .sort((a, b) => b[1] - a[1]);
+
+                sortedProbs.forEach(([valueName, prob]) => {
+                    const probItem = document.createElement('div');
+                    probItem.className = 'prob-item';
+                    
+                    if (valueName === `value_${result.predicted_value}`) {
+                        probItem.classList.add('highlight');
+                    }
+
+                    probItem.innerHTML = `
+                        <div class="prob-label">${valueName}</div>
+                        <div class="prob-value">${(prob * 100).toFixed(1)}%</div>
+                    `;
+
+                    probContainer.appendChild(probItem);
+                });
+            }
+        }
+
+        function startRecognition() {
+            const btnStart = document.getElementById('btnStart');
+            const btnStop = document.getElementById('btnStop');
+            const loading = document.getElementById('loading');
+            const videoStream = document.getElementById('videoStream');
+            const placeholder = document.getElementById('placeholder');
+
+            btnStart.disabled = true;
+            loading.classList.add('active');
+
+            // 使用绝对URL，避免相对路径问题
+            const baseUrl = window.location.origin;
+            
+            fetch(baseUrl + '/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                mode: 'cors'
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.classList.remove('active');
+                
+                if (data.status === 'success') {
+                    // 显示视频流（使用绝对URL）
+                    videoStream.src = baseUrl + '/video_feed?' + new Date().getTime();
+                    videoStream.style.display = 'block';
+                    placeholder.style.display = 'none';
+                    
+                    btnStart.disabled = true;
+                    btnStop.disabled = false;
+
+                    // 开始定期更新状态
+                    if (statusCheckInterval) {
+                        clearInterval(statusCheckInterval);
+                    }
+                    statusCheckInterval = setInterval(updateStatus, 2000);
+                    updateStatus();
+                } else {
+                    showError(data.message || '启动失败');
+                    btnStart.disabled = false;
+                }
+            })
+            .catch(error => {
+                loading.classList.remove('active');
+                showError('网络错误: ' + error.message);
+                btnStart.disabled = false;
+                console.error('启动识别失败:', error);
+            });
+        }
+
+        function stopRecognition() {
+            const btnStart = document.getElementById('btnStart');
+            const btnStop = document.getElementById('btnStop');
+            const videoStream = document.getElementById('videoStream');
+            const placeholder = document.getElementById('placeholder');
+            const resultPanel = document.getElementById('resultPanel');
+
+            btnStop.disabled = true;
+
+            const baseUrl = window.location.origin;
+
+            fetch(baseUrl + '/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                mode: 'cors'
+            })
+            .then(response => response.json())
+            .then(data => {
+                // 隐藏视频流
+                videoStream.src = '';
+                videoStream.style.display = 'none';
+                placeholder.style.display = 'flex';
+                resultPanel.style.display = 'none';
+                
+                btnStart.disabled = false;
+                btnStop.disabled = true;
+
+                // 停止状态更新
+                if (statusCheckInterval) {
+                    clearInterval(statusCheckInterval);
+                    statusCheckInterval = null;
+                }
+                updateStatus();
+            })
+            .catch(error => {
+                showError('停止失败: ' + error.message);
+                btnStop.disabled = false;
+                console.error('停止识别失败:', error);
+            });
+        }
+
+        // 页面加载时获取初始状态
+        window.addEventListener('load', () => {
+            updateStatus();
+        });
+
+        // 处理视频流错误
+        document.getElementById('videoStream').addEventListener('error', function() {
+            console.error('视频流加载错误');
+            showError('视频流连接失败，请检查摄像头是否可用');
+        });
+    </script>
+</body>
+</html>
+
